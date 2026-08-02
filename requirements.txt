@@ -1,0 +1,10 @@
+# No GPU / CUDA / CuPy required -- this pipeline runs entirely on CPU via
+# openpiv-python (https://github.com/OpenPIV/openpiv-python).
+numpy
+matplotlib
+scipy
+lvpyio
+openpiv
+
+# For the GPU-accelerated version of this pipeline, see
+# https://github.com/SPC3MN/Stereo_PIV_GPU
