@@ -105,20 +105,38 @@ DEFAULT_CONFIG = {
     # ---------------- Output ----------------
     "output_dir": "stereo_piv_output_cpu",
 
-    # ---------------- PIV window size / core settings ----------
-    # Forwarded to piv_common.CPUPIVProcess(frame_shape, **cpu_settings),
-    # which wraps openpiv-python's basic
-    # pyprocess.extended_search_area_piv -- a SINGLE interrogation pass per
-    # camera, no window deformation/multi-pass refinement (unlike
-    # piv_gpu). Unknown keys are warned about, not silently dropped.
+    # ---------------- PIV window size / passes / core settings ----------
+    # Forwarded to piv_common.CPUPIVProcess(frame_shape, **cpu_settings)
+    # PER CAMERA, which drives openpiv-python's own multi-pass,
+    # window-deformation pipeline (openpiv.windef, via an
+    # openpiv.settings.PIVSettings object) -- the same coarse-to-fine
+    # multi-pass + validation + outlier-replacement + optional-smoothing
+    # feature set as piv_gpu. Keys here are PIVSettings field names -- see
+    # openpiv.settings.PIVSettings for the full list. Unknown keys are
+    # warned about, not silently dropped.
+    #
+    # Default schedule: one pass at 64px/50% overlap (32px overlap), then
+    # three passes at 32px/75% overlap (24px overlap) -- windowsizes/
+    # overlap must be the same length (one entry per pass); overlap here
+    # is in PIXELS, not a ratio.
     "cpu_settings": {
-        "window_size": 32,
-        "search_area_size": 64,
-        "overlap_ratio": 0.5,
+        "windowsizes": [64, 32, 32, 32],
+        "overlap": [32, 24, 24, 24],
         "dt": 1.0,
+        "correlation_method": "circular",
+        "subpixel_method": "gaussian",
+        "deformation_method": "symmetric",
+        "interpolation_order": 3,
         "sig2noise_method": "peak2mean",
         "sig2noise_threshold": 1.05,
-        "subpixel_method": "gaussian",
+        "sig2noise_validate": True,
+        "validation_first_pass": True,
+        "replace_vectors": True,
+        "filter_method": "localmean",
+        "max_filter_iteration": 4,
+        "filter_kernel_size": 2,
+        "smoothn": False,
+        "smoothn_p": 0.05,
     },
 
     # ---------------- Per-camera post-processing (before combining) -------

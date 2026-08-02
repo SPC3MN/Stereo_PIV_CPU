@@ -5,17 +5,20 @@ No-GPU counterpart to
 raw stereo `.im7` buffers from one or more LaVision/DaVis sets, dewarps
 each camera's images onto a shared world grid using the same DaVis
 calibration polynomial, runs plain
-[`openpiv-python`](https://github.com/OpenPIV/openpiv-python)'s basic
-single-pass `pyprocess.extended_search_area_piv` on each camera's dewarped
-pair (instead of `piv_gpu`), then combines the two in-plane displacement
-fields into 3-component (U, V, W) stereo velocity using the same
-reconstruction math as the GPU pipeline. No CUDA, no GPU, nothing beyond a
-normal Python + pip install.
+[`openpiv-python`](https://github.com/OpenPIV/openpiv-python)'s own
+multi-pass, window-deformation pipeline (`openpiv.windef`, the same
+coarse-to-fine multi-pass + validation + outlier-replacement +
+optional-smoothing approach as `piv_gpu`) on each camera's dewarped pair
+instead of `piv_gpu`, then combines the two in-plane displacement fields
+into 3-component (U, V, W) stereo velocity using the same reconstruction
+math as the GPU pipeline. No CUDA, no GPU, nothing beyond a normal Python
++ pip install.
 
-This is deliberately the **basic** openpiv-python API -- a single
-interrogation pass, no window deformation / multi-pass refinement -- so
-treat it as a no-GPU fallback or a CPU cross-check, not a
-feature-for-feature replacement for the GPU pipeline's accuracy.
+Treat it as a no-GPU fallback or a CPU cross-check against
+`Stereo_PIV_GPU`, not a byte-for-byte replacement -- it's the same
+multi-pass *idea*, but two different implementations of it
+(`openpiv-python` vs. `openpiv-python-gpu`), so exact numeric agreement
+isn't guaranteed.
 
 ## ⚠️ Before trusting any output
 
@@ -45,10 +48,13 @@ W (or U/V). See that repo's README for the full discussion.
 - Dewarps each camera's raw images onto a shared world grid using DaVis's
   own 3rd-order polynomial mapping (`CameraMapping`), caching the coordinate
   grid per camera so it's only computed once per run, not once per frame
-- Runs `openpiv-python`'s `extended_search_area_piv` on each camera's
-  dewarped pair independently, with the same post-processing options as
-  the GPU pipeline (outlier rejection, invalid vector interpolation,
-  smoothing), using `sig2noise_val` for vector validation
+- Runs `openpiv-python`'s multi-pass pipeline on each camera's dewarped
+  pair independently -- coarse-to-fine window sizes with image
+  deformation between passes, per-pass sig2noise/global/median
+  validation, iterative outlier replacement, and optional `smoothn`
+  smoothing (all via `openpiv.settings.PIVSettings`) -- then the same
+  outer post-processing options as the GPU pipeline (outlier rejection,
+  invalid vector interpolation, smoothing) run on top
 - Combines the two cameras' in-plane displacement fields into 3-component
   (U, V, W) displacement via the same least-squares stereo reconstruction
   used by `Stereo_PIV_GPU`
@@ -111,7 +117,7 @@ include the keys you're actually changing in the file.
 | `suffix_cam0` / `suffix_cam1` | (`"loose"` mode only) filename suffixes used to pair each camera's file |
 | `cam0_mapping` / `cam1_mapping` | Each camera's DaVis calibration polynomial coefficients |
 | `world_shape` / `world_scale_px_per_mm` / `dewarp_order` | Shared dewarped output grid geometry |
-| `cpu_settings` | Forwarded to `openpiv-python`'s `extended_search_area_piv` -- `window_size`, `search_area_size`, `overlap_ratio`, `dt`, `sig2noise_method`, `sig2noise_threshold`, `subpixel_method`. Unrecognized keys are warned about, not silently dropped. |
+| `cpu_settings` | Keys are `openpiv.settings.PIVSettings` field names, forwarded per camera -- `windowsizes`/`overlap` (one entry per pass; overlap in **pixels**, not a ratio), `dt`, `sig2noise_method`/`sig2noise_threshold`/`sig2noise_validate`, `validation_first_pass`, `replace_vectors`, `filter_method`/`max_filter_iteration`/`filter_kernel_size`, `smoothn`/`smoothn_p`, `deformation_method`, `interpolation_order`, and more (see `PIVSettings`). Default: one pass at 64px/50% overlap, then three passes at 32px/75% overlap. Unrecognized keys are warned about, not silently dropped. |
 | `global_outlier_std` | Reject vectors more than N standard deviations from the mean (`None` disables) |
 | `replace_invalid` | Interpolate over invalid/NaN vectors, per camera, before combining |
 | `smooth_field` / `smooth_sigma` | Gaussian-smooth each camera's field before combining |
